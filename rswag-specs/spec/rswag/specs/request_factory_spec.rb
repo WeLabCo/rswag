@@ -4,9 +4,15 @@ module Rswag
   module Specs
 
     describe RequestFactory do
+      subject { RequestFactory.new(api_metadata, global_metadata) }
+
+      before do
+        allow(example).to receive(:blog_id).and_return(1)
+        allow(example).to receive(:id).and_return('2')
+      end
       let(:api_metadata) do
         {
-          path: '/blogs/{blog_id}/comments/{id}',
+          path_item: { template: '/blogs/{blog_id}/comments/{id}' },
           operation: {
             verb: :put,
             summary: 'Updates a blog',
@@ -18,14 +24,7 @@ module Rswag
         }
       end
       let(:global_metadata) { {} }
-
-      subject { RequestFactory.new(api_metadata, global_metadata) }
-
       let(:example) { double('example') }
-      before do
-        allow(example).to receive(:blog_id).and_return(1)
-        allow(example).to receive(:id).and_return('2')
-      end
 
       describe '#build_fullpath(example)' do
         let(:path) { subject.build_fullpath(example) }
@@ -103,7 +102,7 @@ module Rswag
           end
 
           context 'global requirement' do
-            before { global_metadata[:security] = { api_key: [] } }
+            before { global_metadata[:security] = [ { api_key: [] } ] }
 
             it "appends the api_key using metadata and example value" do
               expect(path).to eq('/blogs/1/comments/2?api_key=fookey')
@@ -111,7 +110,7 @@ module Rswag
           end
 
           context 'operation-specific requirement' do
-            before { api_metadata[:operation][:security] = { api_key: [] } }
+            before { api_metadata[:operation][:security] = [ { api_key: [] } ] }
 
             it "appends the api_key using metadata and example value" do
               expect(path).to eq('/blogs/1/comments/2?api_key=fookey')
@@ -124,6 +123,17 @@ module Rswag
 
           it 'prepends the basePath' do
             expect(path).to eq('/foobar/blogs/1/comments/2')
+          end
+        end
+
+        context "defined at the 'path' level" do
+          before do
+            api_metadata[:path_item][:parameters] = [ { name: :blog_id, in: :path } ]
+            api_metadata[:operation][:parameters] = [ { name: :id, in: :path } ]
+          end
+
+          it "builds path from parameters defined at path and operation levels" do
+            expect(path).to eq('/blogs/1/comments/2')
           end
         end
       end

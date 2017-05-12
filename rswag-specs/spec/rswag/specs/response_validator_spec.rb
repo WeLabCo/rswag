@@ -4,10 +4,10 @@ module Rswag
   module Specs
 
     describe ResponseValidator do
+      subject { ResponseValidator.new(api_metadata, global_metadata) }
+
       let(:api_metadata) { { response: { code: 200 } } }
       let(:global_metadata) { {} }
-
-      subject { ResponseValidator.new(api_metadata, global_metadata) }
 
       describe '#validate!(response)' do
         let(:call) { subject.validate!(response) }
@@ -29,7 +29,7 @@ module Rswag
             api_metadata[:response][:schema] = {
               type: 'object',
               properties: { text: { type: 'string' } },
-              required: [ 'text' ]
+              required: ['text']
             }
           end
 
@@ -42,6 +42,25 @@ module Rswag
             let(:response) { OpenStruct.new(code: 200, body: "{\"foo\":\"Some comment\"}") }
             it { expect { call }.to raise_error UnexpectedResponse }
           end
+
+          context "'block' provided" do
+            let(:call) do
+              subject.validate!(response) do |response|
+                data = JSON.parse(response.body)
+                expect(data['text']).to eq('Some comment')
+              end
+            end
+
+            context 'the block validation passes' do
+              let(:response) { OpenStruct.new(code: 200, body: "{\"text\":\"Some comment\"}") }
+              it { expect { call }.to_not raise_error }
+            end
+
+            context 'the block validation fails' do
+              let(:response) { OpenStruct.new(code: 200, body: "{\"text\":\"Some other comment\"}") }
+              it { expect { call }.to raise_error(RSpec::Expectations::ExpectationNotMetError) }
+            end
+          end
         end
 
         context "referenced 'schema' provided" do
@@ -51,7 +70,7 @@ module Rswag
               author: {
                 type: 'object',
                 properties: { name: { type: 'string' } },
-                required: [ 'name' ]
+                required: ['name']
               }
             }
           end
@@ -63,6 +82,42 @@ module Rswag
 
           context 'response code matches & body does not' do
             let(:response) { OpenStruct.new(code: 200, body: "{\"foo\":\"Some name\"}") }
+            it { expect { call }.to raise_error UnexpectedResponse }
+          end
+        end
+
+        context "'headers' provided" do
+          before do
+            api_metadata[:response][:headers] = {
+              'X-Rate-Limit-Limit' => {
+                description: 'The number of allowed requests in the current period',
+                type: 'integer'
+              },
+              'X-Rate-Limit-Remaining' => {
+                description: 'The number of remaining requests in the current period',
+                type: 'integer'
+              },
+              'X-Rate-Limit-Reset' => {
+                description: 'The number of seconds left in the current period',
+                type: 'integer'
+              }
+            }
+          end
+
+          context 'response code & body matches' do
+            let(:response) { OpenStruct.new(code: 200, body: '{}', headers: {
+              'X-Rate-Limit-Limit' => 1,
+              'X-Rate-Limit-Remaining' => 1,
+              'X-Rate-Limit-Reset' => 1
+            }) }
+            it { expect { call }.to_not raise_error }
+          end
+
+          context 'response code matches & body does not' do
+            let(:response) { OpenStruct.new(code: 200, body: '{}', headers: {
+              'X-Rate-Limit-Limit' => 1,
+              'X-Rate-Limit-Remaining' => 1
+            }) }
             it { expect { call }.to raise_error UnexpectedResponse }
           end
         end
