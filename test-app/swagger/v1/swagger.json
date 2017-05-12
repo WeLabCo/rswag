@@ -68,6 +68,14 @@
       }
     },
     "/blogs/{id}": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "type": "string",
+          "required": true
+        }
+      ],
       "get": {
         "summary": "Retrieves a blog",
         "tags": [
@@ -78,19 +86,29 @@
         "produces": [
           "application/json"
         ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "type": "string",
-            "required": true
-          }
-        ],
         "responses": {
           "200": {
             "description": "blog found",
+            "headers": {
+              "ETag": {
+                "type": "string"
+              },
+              "Last-Modified": {
+                "type": "string"
+              },
+              "Cache-Control": {
+                "type": "string"
+              }
+            },
             "schema": {
               "$ref": "#/definitions/blog"
+            },
+            "examples": {
+              "application/json": {
+                "id": 1,
+                "title": "Hello world!",
+                "content": "Hello world and hello universe. Thank you all very much!!!"
+              }
             }
           },
           "404": {
@@ -145,9 +163,11 @@
       "in": "query"
     }
   },
-  "security": {
-    "api_key": [
+  "security": [
+    {
+      "api_key": [
 
-    ]
-  }
+      ]
+    }
+  ]
 }

@@ -11,7 +11,7 @@ module Rswag
       end
 
       def build_fullpath(example)
-        @api_metadata[:path].dup.tap do |t|
+        @api_metadata[:path_item][:template].dup.tap do |t|
           t.prepend(@global_metadata[:basePath] || '')
           parameters_in(:path).each { |p| t.gsub!("{#{p[:name]}}", example.send(p[:name]).to_s) }
           t.concat(build_query_string(example))
@@ -44,7 +44,13 @@ module Rswag
       private
 
       def parameters_in(location)
-        (@api_metadata[:operation][:parameters] || [])
+        path_item_params = @api_metadata[:path_item][:parameters] || []
+        operation_params = @api_metadata[:operation][:parameters] || []
+        applicable_params = operation_params
+          .concat(path_item_params)
+          .uniq { |p| p[:name] } # operation params should override path_item params
+
+        applicable_params
           .map { |p| p['$ref'] ? resolve_parameter(p['$ref']) : p } # resolve any references
           .concat(resolve_api_key_parameters)
           .select { |p| p[:in] == location }
@@ -59,9 +65,13 @@ module Rswag
 
       def resolve_api_key_parameters
         @api_key_params ||= begin
-          global_requirements = (@global_metadata[:security] || {})
-          requirements = global_requirements.merge(@api_metadata[:operation][:security] || {})
-          definitions = (@global_metadata[:securityDefinitions] || {}).slice(*requirements.keys)
+          # First figure out the security requirement applicable to the operation
+          global_requirements = (@global_metadata[:security] || [] ).map { |r| r.keys.first }
+          operation_requirements = (@api_metadata[:operation][:security] || [] ).map { |r| r.keys.first }
+          requirements = global_requirements | operation_requirements
+
+          # Then obtain the scheme definitions for those requirements
+          definitions = (@global_metadata[:securityDefinitions] || {}).slice(*requirements)
           definitions.values.select { |d| d[:type] == :apiKey }
         end
       end

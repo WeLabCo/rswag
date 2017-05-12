@@ -4,9 +4,19 @@ module Rswag
   module Specs
 
     describe ExampleHelpers do
+      subject { double('example') }
+
+      before do
+        subject.extend ExampleHelpers
+        # Mock out some infrastructure
+        stub_const('Rails::VERSION::MAJOR', 3)
+        rswag_config = double('rswag_config')
+        allow(rswag_config).to receive(:get_swagger_doc).and_return(global_metadata)
+        allow(subject).to receive(:rswag_config).and_return(rswag_config)
+      end
       let(:api_metadata) do
         {
-          path: '/blogs/{blog_id}/comments/{id}',
+          path_item: { template: '/blogs/{blog_id}/comments/{id}' },
           operation: {
             verb: :put,
             summary: 'Updates a blog',
@@ -16,9 +26,9 @@ module Rswag
               { name: 'q1', in: :query, type: 'string' },
               { name: :blog, in: :body, schema: { type: 'object' } }
             ],
-            security: {
-              api_key: []
-            }
+            security: [
+              { api_key: [] }
+            ]
           }
         }
       end
@@ -34,22 +44,14 @@ module Rswag
         }
       end
 
-      subject { double('example') }
-
-      before do
-        subject.extend ExampleHelpers
-        allow(subject).to receive(:blog_id).and_return(1)
-        allow(subject).to receive(:id).and_return(2)
-        allow(subject).to receive(:q1).and_return('foo')
-        allow(subject).to receive(:api_key).and_return('fookey')
-        allow(subject).to receive(:blog).and_return(text: 'Some comment')
-        allow(subject).to receive(:global_metadata).and_return(global_metadata)
-        allow(subject).to receive(:put)
-      end
-
       describe '#submit_request(api_metadata)' do
         before do
-          stub_const('Rails::VERSION::MAJOR', 3)
+          allow(subject).to receive(:blog_id).and_return(1)
+          allow(subject).to receive(:id).and_return(2)
+          allow(subject).to receive(:q1).and_return('foo')
+          allow(subject).to receive(:api_key).and_return('fookey')
+          allow(subject).to receive(:blog).and_return(text: 'Some comment')
+          allow(subject).to receive(:put)
           subject.submit_request(api_metadata)
         end
 
