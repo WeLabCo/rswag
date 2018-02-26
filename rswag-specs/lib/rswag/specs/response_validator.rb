@@ -1,35 +1,49 @@
+require 'active_support/core_ext/hash/slice'
 require 'json-schema'
+require 'json'
+require 'rswag/specs/extended_schema'
 
 module Rswag
   module Specs
     class ResponseValidator
 
-      def initialize(api_metadata, global_metadata)
-        @api_metadata = api_metadata
-        @global_metadata = global_metadata
+      def initialize(config = ::Rswag::Specs.config)
+        @config = config
       end
 
-      def validate!(response)
-        validate_code!(response.code)
-        validate_body!(response.body)
+      def validate!(metadata, response)
+        swagger_doc = @config.get_swagger_doc(metadata[:swagger_doc])
+
+        validate_code!(metadata, response.code)
+        validate_headers!(metadata, response.headers)
+        validate_body!(metadata, swagger_doc, response.body)
       end
 
       private
 
-      def validate_code!(code)
-        if code.to_s != @api_metadata[:response][:code].to_s
-          raise UnexpectedResponse, "Expected response code '#{code}' to match '#{@api_metadata[:response][:code]}'"
+      def validate_code!(metadata, code)
+        expected = metadata[:response][:code].to_s
+        if code != expected
+          raise UnexpectedResponse, "Expected response code '#{code}' to match '#{expected}'"
         end
       end
 
-      def validate_body!(body)
-        schema = @api_metadata[:response][:schema]
-        return if schema.nil?
-        begin
-          JSON::Validator.validate!(schema.merge(@global_metadata), body)
-        rescue JSON::Schema::ValidationError => ex
-          raise UnexpectedResponse, "Expected response body to match schema: #{ex.message}" 
+      def validate_headers!(metadata, headers)
+        expected = (metadata[:response][:headers] || {}).keys
+        expected.each do |name|
+          raise UnexpectedResponse, "Expected response header #{name} to be present" if headers[name.to_s].nil?
         end
+      end
+
+      def validate_body!(metadata, swagger_doc, body)
+        response_schema = metadata[:response][:schema]
+        return if response_schema.nil?
+
+        validation_schema = response_schema
+          .merge('$schema' => 'http://tempuri.org/rswag/specs/extended_schema')
+          .merge(swagger_doc.slice(:definitions))
+        errors = JSON::Validator.fully_validate(validation_schema, body)
+        raise UnexpectedResponse, "Expected response body to match schema: #{errors[0]}" if errors.any?
       end
     end
 

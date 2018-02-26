@@ -2,7 +2,7 @@ source "https://rubygems.org"
 
 # Allow the rails version to come from an ENV setting so Travis can test multiple versions.
 # See http://www.schneems.com/post/50991826838/testing-against-multiple-rails-versions/
-rails_version = ENV['RAILS_VERSION'] || '3.2.22'
+rails_version = ENV['RAILS_VERSION'] || '5.1.2'
 
 gem 'rails', "#{rails_version}"
 
@@ -15,6 +15,7 @@ end
 
 gem 'sqlite3'
 
+gem 'rswag-specs', path: './rswag-specs'
 gem 'rswag-api', path: './rswag-api'
 gem 'rswag-ui', path: './rswag-ui'
 
@@ -25,5 +26,11 @@ group :test do
   gem 'test-unit'
   gem 'rspec-rails'
   gem 'generator_spec'
-  gem 'rswag-specs', path: './rswag-specs'
+  gem 'capybara'
+  gem 'capybara-webkit'
+end
+
+group :assets do
+  gem 'uglifier'
+  gem 'therubyracer'
 end

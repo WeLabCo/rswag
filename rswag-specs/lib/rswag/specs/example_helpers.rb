@@ -5,38 +5,30 @@ module Rswag
   module Specs
     module ExampleHelpers
 
-      def submit_request(api_metadata)
-        factory = RequestFactory.new(api_metadata, global_metadata(api_metadata[:swagger_doc]))
+      def submit_request(metadata)
+        request = RequestFactory.new.build_request(metadata, self)
 
         if RAILS_VERSION < 5
           send(
-            api_metadata[:operation][:verb],
-            factory.build_fullpath(self),
-            factory.build_body(self),
-            factory.build_headers(self)
+            request[:verb],
+            request[:path],
+            request[:payload],
+            request[:headers]
           )
         else
           send(
-            api_metadata[:operation][:verb],
-            factory.build_fullpath(self),
+            request[:verb],
+            request[:path],
             {
-              params: factory.build_body(self),
-              headers: factory.build_headers(self)
+              params: request[:payload],
+              headers: request[:headers]
             }
           )
         end
       end
 
-      def assert_response_matches_metadata(api_metadata)
-        validator = ResponseValidator.new(api_metadata, global_metadata(api_metadata[:swagger_doc]))
-        validator.validate!(response)
-      end
-
-      private
-
-      def global_metadata(swagger_doc)
-        swagger_docs = ::RSpec.configuration.swagger_docs
-        swagger_doc.nil? ? swagger_docs.values.first : swagger_docs[swagger_doc]
+      def assert_response_matches_metadata(metadata)
+        ResponseValidator.new.validate!(metadata, response)
       end
     end
   end
